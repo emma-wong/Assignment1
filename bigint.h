@@ -36,6 +36,7 @@ class bigint {
 
       bool operator== (const bigint&) const;
       bool operator<  (const bigint&) const;
+      bigint pow (const bigint&) const;
 };
 
 #endif

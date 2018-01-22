@@ -115,8 +115,6 @@ ubigint ubigint::operator- (const ubigint& that) const {
       a.push_back(difference);
 
    }
-   
-   /* Second while loop to match the remaining digits in the longer numbers with zeros */
    /* Pop_back all high order zeros from the vector before returning it */
    for(int i=a.size()-1; i>0; i--){
       if(a[i] != 0)break;
@@ -133,24 +131,59 @@ ubigint ubigint::operator* (const ubigint& that) const {
    }
    /* Perform an outer loop over one argument */
    for(int i=0; i<ubig_value.size(); i++){
-      int c = 0;
+      int carry = 0;
       /* Perform an inner loop over the other arg adding the new partial products to the product p */
       for(int j=0; j<that.ubig_value.size(); j++){
-         int digit = p[i+j] + ubig_value[i]*that.ubig_value[j] + c;
+         int digit = p[i+j] + ubig_value[i]*that.ubig_value[j] + carry;
          p[i+j] = digit % 10;
-         c = digit/10;
+         carry = digit/10;
       }
-      p[i+ubig_value.size()] = c;
+      p[i+ubig_value.size()] = carry;
    }
    return p;
 }
 
 void ubigint::multiply_by_2() {
-   ubig_value *= 2;
+   /* Basically the same thing as regular multiplication but just adding the value of ubig_value to itself */
+   int carry = 0;
+   for(int i = 0; i<ubig_value.size(); i++) {
+      int digit = ubig_value[i] + ubig_value[i] + carry;
+      carry = 0;
+      if (digit >= 10) {
+         carry = digit/10;
+         digit = digit%10;
+      }
+      ubig_value[i] = digit; 
+   }
+   if (carry > 0) {
+      ubig_value.push_back(carry);
+   }
+   /* Pop_back all high order zeros from the vector before returning it */
+   for(int i=ubig_value.size()-1; i>0; i--){
+      if(ubig_value[i] != 0)break;
+      ubig_value.pop_back();
+   }
 }
 
 void ubigint::divide_by_2() {
-   ubig_value /= 2;
+   int remainder = 0;
+   for(int i = ubig_value.size(); i>=0; i--) {
+      int digit = 0;
+      if(remainder >0) {
+         digit = digit + remainder;
+         remainder = 0;
+      }
+      digit = digit + ubig_value[i]/2;
+      if (ubig_value[i]%2 !=0) {
+         remainder = 5;
+      }
+      ubig_value[i] = digit; 
+   }
+   /* Pop_back all high order zeros from the vector before returning it */
+   for(int i=ubig_value.size()-1; i>0; i--){
+      if(ubig_value[i] != 0)break;
+      ubig_value.pop_back();
+   }
 }
 
 
