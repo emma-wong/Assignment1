@@ -106,8 +106,6 @@ bigint bigint::operator/ (const bigint& that) const {
   }else{
     return {result, true};
   }
-
-   return result;
 }
 
 bigint bigint::operator% (const bigint& that) const {
@@ -124,6 +122,25 @@ bool bigint::operator< (const bigint& that) const {
    if (is_negative != that.is_negative) return is_negative;
    return is_negative ? uvalue > that.uvalue
                       : uvalue < that.uvalue;
+}
+
+bigint bigint::pow (const bigint& that) const {
+  bigint result = uvalue;
+  /* Checks if the exponent fits into a single long */
+  bigint maxSize = numeric_limits<long>::max();
+  if (maxSize < that) {
+    cout << "Exponent exceeds limit for long" << endl;
+  }
+  if (that.uvalue == 0) {
+    result = 1;
+  }
+  for(int i = 0; i<that.uvalue; i++) {
+    result *= uvalue; 
+  }
+  if (that.is_negative) {
+    result = 1/result;
+  }
+  return result;
 }
 
 ostream& operator<< (ostream& out, const bigint& that) {

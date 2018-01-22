@@ -17,11 +17,11 @@ ubigint::ubigint (unsigned long that): ubig_value (that) {
       return;
    }
    /* converts unsigned long to string */
-   String tmp = to_string(that);
+   string tmp = to_string(that);
 
    /* Iterates backwards over string ubig_value and pushes into vector ubigvalue */
    for(auto i=tmp.rbegin(); i != tmp.rend(); i++){
-      ubig_value.push_back(i*);
+      ubig_value.push_back(*i);
    }
 }
 
@@ -35,45 +35,114 @@ ubigint::ubigint (const string& that): ubig_value(0) {
    }
    /* Iterates backwards over string ubig_value and pushes into vector ubigvalue */
    for(auto i=that.rbegin(); i != that.rend(); i++){
-      ubig_value.push_back(i*);
+      ubig_value.push_back(*i);
    }
 }
 
+ubigint::ubigint(ubigvalue_t that): ubig_value (that){}
+
 ubigint ubigint::operator+ (const ubigint& that) const {
    /* Create a new ubigint vector */
+   ubigvalue_t a;
    /* While loop to add digits pairwise from low order end to high order end */
    /* Carry over: for any sum greater or equal to 10, take the remainder and add the carry to the next digit */
    /* Push_back new digits to ubigint */
-   /* Second while loop to match the remaining digits in the longer numbers with zeros */
-   return ubigint (ubig_value + that.ubig_value);
+   int bigSize;
+   // int smallSize;
+   if(ubig_value.size() >= that.ubig_value.size()){
+      bigSize = ubig_value.size();
+      // smallSize = that.ubig_value.size();
+   }else{
+      bigSize = that.ubig_value.size();
+      // smallSize = ubig_value.size();
+   }
+
+   bool carry = false;
+   for(int i=0; i<bigSize; i++){
+      int sum;
+      if(i>ubig_value.size()){
+         sum = that.ubig_value[i];
+      }else if(i>that.ubig_value.size()){
+         sum = ubig_value[i];
+      }else{
+         sum = ubig_value[i] + that.ubig_value[i];
+      }
+
+      if(carry) sum += 1;
+      if(sum >= 10){
+         sum = sum % 10;
+         carry = true;
+      }else{
+         carry = false;
+      }
+
+      a.push_back(sum);
+
+   }
+
+   if(carry) {
+      a.push_back(1);
+   }
+   return a;
 }
 
 ubigint ubigint::operator- (const ubigint& that) const {
    if (*this < that) throw domain_error ("ubigint::operator-(a<b)");
    /* Create a new ubigint vector */
+   ubigvalue_t a;
    /* While loop to subtract digits pairwise from low order end to high order end */
    /* Carry over: if the left digit is smaller than the right digit, add 10 to the digit and set the borrow to the next digit to -1 */
    /* Push_back new digits to ubigint */
+   int size = ubig_value.size();
+
+   bool borrow = false;
+   for(int i=0; i<size; i++){
+      int difference;
+      int leftDigit = ubig_value[i];
+      if(borrow) leftDigit -= 1;
+      if(i>that.ubig_value.size()){
+         difference = leftDigit;
+      }else{
+         if(leftDigit<that.ubig_value[i]){
+            difference = (10+leftDigit) - that.ubig_value[i];
+            borrow = true;
+         }else{
+            difference = leftDigit - that.ubig_value[i];
+            borrow = false;
+         }
+      }
+
+      a.push_back(difference);
+
+   }
+   
    /* Second while loop to match the remaining digits in the longer numbers with zeros */
    /* Pop_back all high order zeros from the vector before returning it */
-   return ubigint (ubig_value - that.ubig_value);
+   for(int i=a.size()-1; i>0; i--){
+      if(a[i] != 0)break;
+      a.pop_back();
+   }
+   return a;
 }
 
 ubigint ubigint::operator* (const ubigint& that) const {
    /* Allocate a new vector whose size is equal to the sum of the sizes of the other two operands */
+   ubigvalue_t p;
+   for(int i=0; i<(ubig_value.size() + that.ubig_value.size()); i++){
+      p.push_back(0);
+   }
    /* Perform an outer loop over one argument */
-   /* Perform an inner loop over the other arg adding the new partial products to the product p */
-   /* 
-      p = m+n
-      for i in [0,m)
-         c = 0
-         for j in [0,n)
-            d = p+uv+c
-            p = d rem 10
-            c = floor of d/10
-         p = c
-   */
-   return ubigint (ubig_value * that.ubig_value);
+   for(int i=0; i<ubig_value.size(); i++){
+      int c = 0;
+      /* Perform an inner loop over the other arg adding the new partial products to the product p */
+      for(int j=0; j<that.ubig_value.size(); j++){
+         int digit = p[i+j] + ubig_value[i]*that.ubig_value[j] + c;
+         p[i+j] = digit % 10;
+         c = digit/10;
+      }
+      p[i+ubig_value.size()] = c;
+   }
+   return p;
 }
 
 void ubigint::multiply_by_2() {
@@ -88,10 +157,10 @@ void ubigint::divide_by_2() {
 struct quo_rem { ubigint quotient; ubigint remainder; };
 quo_rem udivide (const ubigint& dividend, ubigint divisor) {
    // Note: divisor is modified so pass by value (copy).
-   ubigint zero {0};
+   ubigint zero = 0;
    if (divisor == zero) throw domain_error ("udivide by zero");
-   ubigint power_of_2 {1};
-   ubigint quotient {0};
+   ubigint power_of_2 =1;
+   ubigint quotient =0;
    ubigint remainder {dividend}; // left operand, dividend
    while (divisor < remainder) {
       divisor.multiply_by_2();
@@ -118,9 +187,13 @@ ubigint ubigint::operator% (const ubigint& that) const {
 
 bool ubigint::operator== (const ubigint& that) const {
    /* Check if the signs are the same and the lengths of the vectors are the same */
-   if (is_negative == that.is_negative) {
+   if (/*is_negative == that.is_negative &&*/ ubig_value.size() == that.ubig_value.size()) {
       /* If yes, run down both vectors and return false as soon as a difference is found */
-      
+      for(int i =0; i<ubig_value.size(); i++) {
+         if (ubig_value[i] != that.ubig_value[i]) {
+            return false;
+         }
+      }
       /* Otherwise, return true */
       return true;
    }
@@ -129,23 +202,38 @@ bool ubigint::operator== (const ubigint& that) const {
 }
 
 bool ubigint::operator< (const ubigint& that) const {
-   /* If the signs are different, negative number is less than positive number */
-   /* If the signs are the same and the lengths are different */
-      /* If nums are pos, shorter num is less */
-      /* If nums are neg, longer num is less */
-   /* If the signs are the same and the lengths are the same */
+   /* If the lengths are different */
+   if ((ubig_value.size() != that.ubig_value.size())) {
+      /* shorter num is less */
+      if(ubig_value.size() < that.ubig_value.size()) {
+         return true;
+      }
+      return false;
+   }
+   /* If the lengths are the same */
+   else if ((ubig_value.size() == that.ubig_value.size())) {
       /* Run down parallel vectors from high order end to low order end */
-      /* When difference is found, return true/false as appropriate */
+      for (int i = 0; i<ubig_value.size(); i++) {
+         /* When difference is found, return true/false as appropriate */
+         if(ubig_value[i] != that.ubig_value[i]){
+            if (ubig_value[i] < that.ubig_value[i]) {
+               return true;
+            }
+            else {
+               return false;
+            }
+         }
+      }
       /* If no difference is found, return false */
-
-   return ubig_value < that.ubig_value;
+      return false;
+   }
 }
 
-ostream& operator<< (ostream& out, const ubigint& that) { 
+/*ostream& operator<< (ostream& out, const ubigint& that) { */
    /* Make fn print out numbers the way dc(1) does */
-   if (that.is_negative) {
+   /*if (that.is_negative) {
       out << "-";
    }
    out << that.ubig_value;
    return out;
-}
+}*/

@@ -1,66 +1,56 @@
-# $Id: Makefile,v 7.25 2017-06-29 17:17:43-07 - - $
+# $Id: Makefile,v 1.27 2018-01-05 16:54:08-08 - - $
 
-ALL:= ${basename ${filter %.tex %.mm, ${shell ls -t}}}
-NEW:= ${firstword ${ALL}}
+MKFILE      = Makefile
+DEPFILE     = ${MKFILE}.dep
+NOINCL      = ci clean spotless
+NEEDINCL    = ${filter ${NOINCL}, ${MAKECMDGOALS}}
+GMAKE       = ${MAKE} --no-print-directory
+COMPILECPP  = g++ -std=gnu++1y -g -O0 -Wall -Wextra -Wold-style-cast
+MAKEDEPCPP  = g++ -std=gnu++1y -MM
 
-GROFFDIR = /afs/cats.ucsc.edu/courses/cmps012b-wm/groff
-DEPS     = ${GROFFDIR}/Tmac.mm-etc Makefile
-DIROPTS  = -F${GROFFDIR}/font -I${GROFFDIR}/tmac -M${GROFFDIR}/tmac
-GROFFMM  = groff -mgm -U -b -ww ${DIROPTS}
-PSOPTS   = -spte -Tps
-HTOPTS   = -spte -Thtml
-TTOPTS   = -st -Tlatin1 -P-cbuo
-SQUEEZE  = perl -00pe0
+MODULES     = ubigint bigint libfns scanner debug util
+CPPHEADER   = ${MODULES:=.h} iterstack.h relops.h
+CPPSOURCE   = ${MODULES:=.cpp} main.cpp
+EXECBIN     = ydc
+OBJECTS     = ${CPPSOURCE:.cpp=.o}
+MODULESRC   = ${foreach MOD, ${MODULES}, ${MOD}.h ${MOD}.cpp}
+OTHERSRC    = ${filter-out ${MODULESRC}, ${CPPHEADER} ${CPPSOURCE}}
+ALLSOURCES  = ${MODULESRC} ${OTHERSRC} ${MKFILE}
+LISTING     = Listing.ps
 
-newest : ${NEW}.tt ${NEW}.view ${NEW}.pdf
+all : ${EXECBIN}
 
-all : tt ps pdf
+${EXECBIN} : ${OBJECTS}
+	${COMPILECPP} -o $@ ${OBJECTS}
 
-ps : ${ALL:%=%.ps}
-tt : ${ALL:%=%.tt}
-pdf : ${ALL:%=%.pdf}
+%.o : %.cpp
+	- cpplint.py.perl $<
+	${COMPILECPP} -c $<
 
-% : %.view
+ci : ${ALLSOURCES}
+	- checksource ${ALLSOURCES}
+	cid + ${ALLSOURCES}
 
-%. : %.view
+lis : ${ALLSOURCES}
+	mkpspdf ${LISTING} ${ALLSOURCES} ${DEPFILE}
 
-%.view : %.ps
-	killps ghostview gs gv
-	gv $< &
+clean :
+	- rm ${OBJECTS} ${DEPFILE} core ${EXECBIN}.errs
 
-%.ps : %.dvi
-	dvips -D9600 -Pcmz $< -o $@
+spotless : clean
+	- rm ${EXECBIN} ${LISTING} ${LISTING:.ps=.pdf}
 
-%.dvi : %.tex
-	cid + $<
-	latex $<
+dep : ${CPPSOURCE} ${CPPHEADER}
+	@ echo "# ${DEPFILE} created `LC_TIME=C date`" >${DEPFILE}
+	${MAKEDEPCPP} ${CPPSOURCE} >>${DEPFILE}
 
-%.ps : %.mm ${DEPS}
-	cid + $<
-	${GROFFMM} ${PSOPTS} -z -rRef=1 $< 2>$*.qrf
-	cat -nv $*.qrf
-	${GROFFMM} ${PSOPTS} $< >$@
-	# Hack to make gv understand this is Letter paper.
-	letterbbox $@
-	rm -vf $*.qrf
+${DEPFILE} :
+	@ touch ${DEPFILE}
+	${GMAKE} dep
 
-%.tt : %.mm ${DEPS}
-	${GROFFMM} ${TTOPTS} -z -rRef=1 $< 2>$*.qrf
-	cat -nv $*.qrf
-	${GROFFMM} ${TTOPTS} $< | ${SQUEEZE} >$@
-	rm -vf $*.qrf
+again :
+	${GMAKE} spotless dep ci all lis
 
-%.pdf : %.ps
-	mkpdf $< &
-
-%.html : %.mm ${DEPS}
-	${GROFFMM} ${HTOPTS} -z -rRef=1 $< 2>$*.qrf
-	cat -nv $*.qrf
-	${GROFFMM} ${HTOPTS} $< >$@
-
-.PRECIOUS: %.man
-%.man : %.sman
-	/usr/lib/sgml/sgml2roff $< >$@
-
-%.html : %.txt
-	txt2html $< >$@
+ifeq (${NEEDINCL}, )
+include ${DEPFILE}
+endif
